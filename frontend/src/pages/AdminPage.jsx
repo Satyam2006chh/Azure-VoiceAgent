@@ -365,11 +365,19 @@ function Dashboard({ token, onLogout }) {
   const [dateTo,   setDateTo]   = useState('');
 
   const fileInputRef = useRef(null);
-  const H = { 'X-Admin-Token': token };
 
-  const fetch_ = async (url, setter) => {
-    try { const r = await fetch(`${BACKEND_URL}${url}`, { headers: H }); if (r.ok) setter(await r.json()); } catch {}
-  };
+  // Use a ref for headers so refresh/fetch_ always uses the current token
+  const tokenRef = useRef(token);
+  useEffect(() => { tokenRef.current = token; }, [token]);
+
+  const fetch_ = useCallback(async (url, setter) => {
+    try {
+      const r = await fetch(`${BACKEND_URL}${url}`, {
+        headers: { 'X-Admin-Token': tokenRef.current }
+      });
+      if (r.ok) setter(await r.json());
+    } catch {}
+  }, []);
 
   const refresh = useCallback(() => {
     fetch_('/api/admin/stats',              setStats);
@@ -378,21 +386,25 @@ function Dashboard({ token, onLogout }) {
     fetch_('/api/admin/pdfs',              setPdfsData);
     fetch_('/api/admin/language-analytics', setLangData);
     fetch_('/api/admin/ai-operations',      setAiOps);
-  }, []);
+  }, [fetch_]);
 
   useEffect(() => {
     refresh();
     fetch_('/api/admin/service-health', setHealth);
     const t = setInterval(refresh, 30000);
     return () => clearInterval(t);
-  }, []);
+  }, [refresh, fetch_]);
 
   const handleUpload = async (e) => {
     const file = e.target.files[0]; if (!file) return;
     setUploading(true); setUploadStatus('Uploading & indexing PDF...');
     const form = new FormData(); form.append('file', file);
     try {
-      const r = await fetch(`${BACKEND_URL}/api/admin/upload-pdf`, { method: 'POST', headers: H, body: form });
+      const r = await fetch(`${BACKEND_URL}/api/admin/upload-pdf`, {
+        method: 'POST',
+        headers: { 'X-Admin-Token': tokenRef.current },
+        body: form,
+      });
       const d = await r.json();
       setUploadStatus(d.message || 'Done!');
       fetch_('/api/admin/pdfs', setPdfsData);
@@ -406,7 +418,10 @@ function Dashboard({ token, onLogout }) {
     if (!window.confirm(`Delete "${filename}"?\n\nThis removes it from Azure AI Search permanently.`)) return;
     setDeletingPdf(filename);
     try {
-      const r = await fetch(`${BACKEND_URL}/api/admin/pdfs/${encodeURIComponent(filename)}`, { method: 'DELETE', headers: H });
+      const r = await fetch(`${BACKEND_URL}/api/admin/pdfs/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+        headers: { 'X-Admin-Token': tokenRef.current },
+      });
       const d = await r.json();
       setUploadStatus(r.ok ? `✓ ${d.message}` : `✗ ${d.detail || 'Delete failed'}`);
     } catch { setUploadStatus('✗ Delete failed.'); }
