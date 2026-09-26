@@ -36,3 +36,19 @@ __pycache__/
 *.pyd
 backend/**/__pycache__/
 backend/**/*.pyc
+
+# Python virtual environment
+venv/
+backend/venv/
+
+# Runtime data — generated at server runtime, never commit
+backend/app/data/users.json
+backend/app/data/audit_logs.json
+backend/telemetry_data.json
+backend/telemetry_data.tmp
+
+# Uploaded PDFs — stored locally, not in repo
+backend/uploads/
+
+# Lock files from wrong directories
+backend/package-lock.json
