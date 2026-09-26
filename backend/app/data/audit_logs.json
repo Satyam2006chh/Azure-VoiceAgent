@@ -1,0 +1,44 @@
+[
+  {
+    "log_id": "aud_e6f2efe0663e",
+    "timestamp": "2026-09-22T12:29:21.557517",
+    "user_email": "satyam3396.beai24@chitkara.edu.in",
+    "user_name": "Satyam Sharma",
+    "user_role": "student",
+    "ip_address": "127.0.0.1",
+    "query_type": "text",
+    "query_text": "What is the passing criteria for semester 2?",
+    "intent": "ORDINANCE_LOOKUP",
+    "tool_used": "Azure AI Search RAG",
+    "is_out_of_scope": false,
+    "remaining_queries": 19
+  },
+  {
+    "log_id": "aud_8a45e195506f",
+    "timestamp": "2026-09-22T12:44:56.362927",
+    "user_email": "ramanbansal164@gmail.com",
+    "user_name": "ramandeep bansal",
+    "user_role": "visitor",
+    "ip_address": "127.0.0.1",
+    "query_type": "text",
+    "query_text": "\u0939\u0947\u0932\u094b, \u0924\u0941\u092e\u094d\u0939\u093e\u0930\u0947 \u0915\u094d\u092f\u093e \u0939\u093e\u0932 \u0939\u0948\u0902?",
+    "intent": "OUT_OF_SCOPE_GUARDRAIL",
+    "tool_used": null,
+    "is_out_of_scope": true,
+    "remaining_queries": 4
+  },
+  {
+    "log_id": "aud_62fd5790e9a3",
+    "timestamp": "2026-09-22T14:03:22.662081",
+    "user_email": "simran3400.beai24@chitkara.edu.in",
+    "user_name": "simran",
+    "user_role": "student",
+    "ip_address": "127.0.0.1",
+    "query_type": "text",
+    "query_text": "\u0986\u09ae\u09bf \u09a4\u09cb\u09ae\u09be\u0995\u09c7 \u09ad\u09be\u09b2\u09cb\u09ac\u09be\u09b8\u09bf\u0964",
+    "intent": "OUT_OF_SCOPE_GUARDRAIL",
+    "tool_used": null,
+    "is_out_of_scope": true,
+    "remaining_queries": 19
+  }
+]

@@ -1,0 +1,78 @@
+{
+  "satyam3396.beai24@chitkara.edu.in": {
+    "id": "usr_f464d20d3556",
+    "email": "satyam3396.beai24@chitkara.edu.in",
+    "name": "Satyam Sharma",
+    "password_hash": "252d5aa1394a6f7bccce28e4d18c5710$8db2c46c803d47fbad79ab33098422f99043965e928bee9367333b9687e3694b",
+    "role": "student",
+    "meta": {
+      "is_college_verified": true,
+      "college_domain": "chitkara.edu.in",
+      "student_id": "satyam3396",
+      "branch": "BEAI24",
+      "batch": null
+    },
+    "daily_limit": 20,
+    "queries_used_today": 1,
+    "last_reset_date": "2026-09-22",
+    "created_at": "2026-09-22T12:29:21.470795",
+    "is_active": true
+  },
+  "satyamwwe47@gmail.com": {
+    "id": "usr_b3643acc376e",
+    "email": "satyamwwe47@gmail.com",
+    "name": "Satyam Visitor",
+    "password_hash": "ce46e695883022e3204394c4cf79b7fa$5e6624b4c019277925c70f47f2d2ff54caebb1e249b2a988e7da6ed32b8f410a",
+    "role": "visitor",
+    "meta": {
+      "is_college_verified": false,
+      "college_domain": null,
+      "student_id": null,
+      "branch": null,
+      "batch": null
+    },
+    "daily_limit": 5,
+    "queries_used_today": 0,
+    "last_reset_date": "2026-09-22",
+    "created_at": "2026-09-22T12:29:21.514279",
+    "is_active": true
+  },
+  "ramanbansal164@gmail.com": {
+    "id": "usr_e01717d91957",
+    "email": "ramanbansal164@gmail.com",
+    "name": "ramandeep bansal",
+    "password_hash": "860c1990b01480bbe253e957dc7b64fa$b3f733da7f6a8b6fd081e8e792b1d58990a486bd5fe81e5aaa81458eb6fd577d",
+    "role": "visitor",
+    "meta": {
+      "is_college_verified": false,
+      "college_domain": null,
+      "student_id": null,
+      "branch": null,
+      "batch": null
+    },
+    "daily_limit": 5,
+    "queries_used_today": 1,
+    "last_reset_date": "2026-09-22",
+    "created_at": "2026-09-22T12:44:22.802722",
+    "is_active": true
+  },
+  "simran3400.beai24@chitkara.edu.in": {
+    "id": "usr_aaa4a0319b2a",
+    "email": "simran3400.beai24@chitkara.edu.in",
+    "name": "simran",
+    "password_hash": "92439fd1f8da01228aa029959980223e$32dbd6fef20a9c11bf940a33a7c4a891a9e0bb057968342f20a86bc315d243d1",
+    "role": "student",
+    "meta": {
+      "is_college_verified": true,
+      "college_domain": "chitkara.edu.in",
+      "student_id": "simran3400",
+      "branch": "BEAI24",
+      "batch": null
+    },
+    "daily_limit": 20,
+    "queries_used_today": 1,
+    "last_reset_date": "2026-09-22",
+    "created_at": "2026-09-22T14:02:07.915978",
+    "is_active": true
+  }
+}

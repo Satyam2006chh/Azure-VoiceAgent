@@ -1,0 +1,167 @@
+[
+  {
+    "num": 1,
+    "desc": "ENG: Attendance rule",
+    "lang": "en-IN",
+    "role": "student",
+    "query": "What is the attendance rule for students?",
+    "tool": "—",
+    "status": "⚠️  WARN",
+    "latency": 6549.2134999949485,
+    "answer": ""
+  },
+  {
+    "num": 2,
+    "desc": "ENG: Branch change CGPA",
+    "lang": "en-IN",
+    "role": "student",
+    "query": "What are the branch change eligibility criteria?",
+    "tool": "—",
+    "status": "⚠️  WARN",
+    "latency": 6870.05890000728,
+    "answer": ""
+  },
+  {
+    "num": 3,
+    "desc": "ENG: Exam fee deadline",
+    "lang": "en-IN",
+    "role": "student",
+    "query": "What is the exam fee deadline for Semester 6?",
+    "tool": "—",
+    "status": "⚠️  WARN",
+    "latency": 9151.91679999407,
+    "answer": ""
+  },
+  {
+    "num": 4,
+    "desc": "ENG: Library query",
+    "lang": "en-IN",
+    "role": "student",
+    "query": "Where is the library reading room?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 4859.073799991165,
+    "answer": ""
+  },
+  {
+    "num": 5,
+    "desc": "ENG: Hostel curfew",
+    "lang": "en-IN",
+    "role": "student",
+    "query": "What is the hostel curfew time?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 6944.210899993777,
+    "answer": ""
+  },
+  {
+    "num": 6,
+    "desc": "HIN: Fee deadline in Hindi",
+    "lang": "hi-IN",
+    "role": "student",
+    "query": "मेरी फीस कब तक जमा करनी है?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 9933.555099996738,
+    "answer": ""
+  },
+  {
+    "num": 7,
+    "desc": "HIN: Attendance rule in Hindi",
+    "lang": "hi-IN",
+    "role": "student",
+    "query": "अटेंडेंस का नियम क्या है?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 9219.047699996736,
+    "answer": ""
+  },
+  {
+    "num": 8,
+    "desc": "HIN: Branch change CGPA in Hindi",
+    "lang": "hi-IN",
+    "role": "student",
+    "query": "ब्रांच चेंज के लिए कितना CGPA चाहिए?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 9201.302100002067,
+    "answer": ""
+  },
+  {
+    "num": 9,
+    "desc": "TAM: Tamil fee query → answer in Tamil",
+    "lang": "ta-IN",
+    "role": "student",
+    "query": "கல்லூரி கட்டண விண்ணப்ப நடைமுறை என்ன?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 6255.283000005875,
+    "answer": ""
+  },
+  {
+    "num": 10,
+    "desc": "TAM: Library timing in Tamil",
+    "lang": "ta-IN",
+    "role": "student",
+    "query": "கல்லூரி நூலக நேரம் என்ன?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 5297.803900000872,
+    "answer": ""
+  },
+  {
+    "num": 11,
+    "desc": "TEL: Attendance in Telugu",
+    "lang": "te-IN",
+    "role": "student",
+    "query": "హాజరు నియమాలు ఏమిటి?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 8611.049800005276,
+    "answer": ""
+  },
+  {
+    "num": 12,
+    "desc": "OOS: Weather (out of scope)",
+    "lang": "en-IN",
+    "role": "student",
+    "query": "What is the weather today in Chandigarh?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 1987.6173000084236,
+    "answer": ""
+  },
+  {
+    "num": 13,
+    "desc": "OOS: IPL (out of scope)",
+    "lang": "en-IN",
+    "role": "student",
+    "query": "Who won IPL 2024?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 2530.0318999943556,
+    "answer": ""
+  },
+  {
+    "num": 14,
+    "desc": "RBAC: Guest asking private grades",
+    "lang": "en-IN",
+    "role": "guest",
+    "query": "What are my internal marks for this semester?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 6350.075700000161,
+    "answer": ""
+  },
+  {
+    "num": 15,
+    "desc": "FAC: Curriculum query by faculty",
+    "lang": "en-IN",
+    "role": "faculty",
+    "query": "What is the curriculum for CSE 3rd year?",
+    "tool": "—",
+    "status": "✅ PASS",
+    "latency": 10249.531099994783,
+    "answer": ""
+  }
+]

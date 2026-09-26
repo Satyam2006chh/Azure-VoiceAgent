@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="200" height="60">
+  <defs>
+    <linearGradient id="sarvamGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF5722"/>
+      <stop offset="50%" stop-color="#FF7043"/>
+      <stop offset="100%" stop-color="#FF8A65"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(10, 8)">
+    <!-- Sarvam Icon Mark -->
+    <circle cx="22" cy="22" r="20" fill="url(#sarvamGrad)" opacity="0.2"/>
+    <circle cx="22" cy="22" r="14" fill="url(#sarvamGrad)"/>
+    <path d="M16 22 L20 16 L28 28 L24 28 Z" fill="#FFFFFF" opacity="0.9"/>
+    <circle cx="24" cy="18" r="3" fill="#FFFFFF"/>
+    
+    <!-- Sarvam AI Text -->
+    <text x="54" y="28" font-family="'Inter', -apple-system, sans-serif" font-size="20" font-weight="900" fill="#FFFFFF" letter-spacing="-0.5">sarvam</text>
+    <text x="134" y="28" font-family="'Inter', -apple-system, sans-serif" font-size="20" font-weight="900" fill="#FF7043" letter-spacing="-0.5">.ai</text>
+  </g>
+</svg>

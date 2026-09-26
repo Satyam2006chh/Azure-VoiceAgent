@@ -1,0 +1,52 @@
+export const TEAM_MEMBERS = [
+  {
+    name: 'Raman Deep Bansal',
+    rollNo: '2410993374',
+    role: 'Lead AI & Cloud Architect',
+    bio: 'Azure AI Search & OpenAI RAG pipelines.',
+    linkedin: 'https://linkedin.com',
+    github: 'https://github.com',
+    avatarBg: '#0078D4',
+    initials: 'RB',
+  },
+  {
+    name: 'Satyam Chhabra',
+    rollNo: '2410993396',
+    role: 'Full-Stack & Voice Integrator',
+    bio: 'React UI & Azure Speech SDK integration.',
+    linkedin: 'https://linkedin.com',
+    github: 'https://github.com',
+    avatarBg: '#7C3AED',
+    initials: 'SC',
+  },
+  {
+    name: 'Sukritti Singla',
+    rollNo: '2410993406',
+    role: 'Knowledge & Data Engineer',
+    bio: 'Document parsing & vector indexing.',
+    linkedin: 'https://linkedin.com',
+    github: 'https://github.com',
+    avatarBg: '#059669',
+    initials: 'SS',
+  },
+  {
+    name: 'Simran',
+    rollNo: '2410993400',
+    role: 'Security & Cloud Engineer',
+    bio: 'Microsoft Entra ID RBAC policies.',
+    linkedin: 'https://linkedin.com',
+    github: 'https://github.com',
+    avatarBg: '#D97706',
+    initials: 'S',
+  },
+];
+
+export const PROJECT_DETAILS = {
+  title: 'Multilingual Voice-Based University Assistant',
+  institution: 'Chitkara University',
+  department: 'Department of Computer Science & Engineering',
+  course: 'Capstone Project (Azure Cloud AI)',
+  academicYear: '2025 – 2026',
+  mentor: 'Shreyas Gowda',
+  professor: 'Shreyas Gowda',
+};
