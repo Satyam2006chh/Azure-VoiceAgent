@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 # Local Keyword Search (always-available fallback)
 # ─────────────────────────────────────────────
 
-def _search_local(query: str, top_k: int = 2) -> List[Dict[str, Any]]:
+def _search_local(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     """
     Keyword-based local retrieval on the in-memory rulebook.
     Used as fallback when Azure AI Search is unavailable.
@@ -66,7 +66,7 @@ def _search_local(query: str, top_k: int = 2) -> List[Dict[str, Any]]:
 # Azure AI Search (primary retrieval)
 # ─────────────────────────────────────────────
 
-async def _search_azure(query: str, top_k: int = 2) -> List[Dict[str, Any]]:
+async def _search_azure(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     """
     Retrieves documents from Azure AI Search index (university-rulebook) using Hybrid Vector Search.
     """
@@ -123,18 +123,27 @@ async def _search_azure(query: str, top_k: int = 2) -> List[Dict[str, Any]]:
 # Public API — Azure first, local fallback
 # ─────────────────────────────────────────────
 
-async def search_university_ordinances(query: str, top_k: int = 2) -> List[Dict[str, Any]]:
+async def search_university_ordinances(query: str, top_k: int = 3) -> List[Dict[str, Any]]:
     """
     Primary entry point for RAG retrieval.
     Tries Azure AI Search first; falls back to local keyword search.
+    Always returns at least top_k=3 chunks so the model has enough context.
     """
     if settings.AZURE_SEARCH_API_KEY:
         azure_results = await _search_azure(query, top_k)
         if azure_results:
+            # Log what was actually retrieved so hallucinations can be diagnosed
+            for i, doc in enumerate(azure_results):
+                preview = doc["content"][:120].replace("\n", " ")
+                logger.info(f"  RAG chunk {i+1} (score={doc['relevance_score']}): {preview}…")
             return azure_results
         logger.info("Azure Search returned empty — falling back to local keyword search")
 
-    return _search_local(query, top_k)
+    local_results = _search_local(query, top_k)
+    for i, doc in enumerate(local_results):
+        preview = doc["content"][:120].replace("\n", " ")
+        logger.info(f"  LOCAL chunk {i+1} (score={doc['relevance_score']}): {preview}…")
+    return local_results
 
 
 def search_university_ordinances_sync(query: str, top_k: int = 2) -> List[Dict[str, Any]]:

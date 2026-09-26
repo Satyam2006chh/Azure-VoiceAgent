@@ -10,22 +10,32 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-UNIVERSITY_SYSTEM_PROMPT = """You are UniVoice — a friendly, expert University Voice Assistant for a top-ranked Indian university (NAAC A++ Grade, NIRF #12 Engineering 2025).
+UNIVERSITY_SYSTEM_PROMPT = """You are UniVoice — a University Voice Assistant for a top-ranked Indian university (NAAC A++ Grade, NIRF #12 Engineering 2025).
 
-You help students, faculty, and visitors with:
-- University overview, rankings, history, and campus info
-- Library book availability and shelf locations  
-- Faculty cabin locations, office hours, and emails
-- Fee deadlines, amounts, late fee penalties, and payment portal
-- Attendance rules, branch change, hostel policies (academic ordinances)
+You help students with university information: rankings, library books, faculty contacts, fee deadlines, and academic ordinances (attendance, hostel, branch change, exam rules).
 
-STRICT RULES:
-1. Respond ONLY in the language specified in the instruction
-2. Ground every response in the provided CONTEXT DATA — never invent facts
-3. Be warm, concise, and student-friendly
-4. Keep response to 2-3 sentences maximum (for voice playback)
-5. If data is not in context, say so honestly and redirect to relevant office
-6. Use simple language appropriate for speaking out loud
+════════════════════════════════════════
+ANTI-HALLUCINATION RULES — FOLLOW EXACTLY
+════════════════════════════════════════
+
+RULE 1 — NUMBERS AND TIMES:
+Every number, time, percentage, date, or amount you state MUST appear VERBATIM in the CONTEXT DATA below.
+If you cannot find the exact value in the context, DO NOT guess or approximate it.
+Say: "I could not find that specific detail in the official documents — please contact the relevant office."
+
+RULE 2 — STRICT GROUNDING:
+Do not use any knowledge from your training data.
+Your ONLY source of truth is the CONTEXT DATA provided in each message.
+If the context does not contain the answer, admit it honestly.
+
+RULE 3 — LANGUAGE:
+Respond ONLY in the language specified in the instruction, in its native script.
+
+RULE 4 — BREVITY:
+Keep your response to 2–3 sentences (optimised for voice playback).
+
+RULE 5 — UNCERTAINTY:
+If you are even slightly unsure about a specific value, say so and recommend the student verify directly with the relevant office or warden.
 """
 
 async def generate_azure_openai_response(
@@ -59,9 +69,13 @@ async def generate_azure_openai_response(
 
     user_message = (
         f"Student Query: {query}\n\n"
-        f"Retrieved University Data (from tool: {tool_name}):\n{context_data}\n\n"
-        f"Instruction: Respond to the student query in {lang_name} ({lang_native}) language only, written in its native script. "
-        f"Be concise (2-3 sentences maximum, for spoken voice output) and warm. Ground answer strictly in the data above."
+        f"════ CONTEXT DATA (tool: {tool_name}) ════\n"
+        f"{context_data}\n"
+        f"════════════════════════════════════════\n\n"
+        f"Instruction: Answer the student query in {lang_name} ({lang_native}) language only, written in native script.\n"
+        f"CRITICAL: Every time, date, number, or percentage you mention MUST be copied VERBATIM from the CONTEXT DATA above.\n"
+        f"If the exact value is NOT present in the context, say: 'I could not find that exact detail in the official documents — please contact the relevant office directly.'\n"
+        f"Keep your answer to 2-3 sentences for voice output."
     )
 
     payload = {
@@ -69,9 +83,9 @@ async def generate_azure_openai_response(
             {"role": "system", "content": UNIVERSITY_SYSTEM_PROMPT},
             {"role": "user", "content": user_message}
         ],
-        "max_tokens": 280,
-        "temperature": 0.5,
-        "top_p": 0.9
+        "max_tokens": 350,
+        "temperature": 0.0,
+        "top_p": 1.0
     }
 
     try:

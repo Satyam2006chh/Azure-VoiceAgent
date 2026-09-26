@@ -378,8 +378,12 @@ async def process_user_query(
         tool_used = "rag_university_ordinances"
         # Translate query to English for better RAG retrieval accuracy
         english_query = await translate_query_to_english(query_text, canonical_lang)
-        rag_docs = await search_university_ordinances(english_query, top_k=2)
+        logger.info(f"RAG query (translated): '{english_query}'")
+        rag_docs = await search_university_ordinances(english_query, top_k=3)
         top_doc = rag_docs[0]
+        # Log all retrieved chunks so retrieval vs generation failures are diagnosable
+        for i, doc in enumerate(rag_docs):
+            logger.info(f"RAG doc {i+1}: [{doc['title']}] score={doc['relevance_score']} | {doc['content'][:100]}…")
         tool_context_str = json.dumps(rag_docs, ensure_ascii=False)
         
         for doc in rag_docs:
