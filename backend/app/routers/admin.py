@@ -6,6 +6,7 @@ Handles authentication, stats, service health checks, and PDF uploads.
 import os
 import shutil
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Header
@@ -220,12 +221,147 @@ async def get_daily_breakdown(authorized: bool = Depends(verify_admin)):
 
 
 # ─────────────────────────────────────────────
-# List Indexed PDFs
+# List Indexed PDFs  (scans uploads/ folder on disk)
 # ─────────────────────────────────────────────
 @router.get("/pdfs")
 async def list_pdfs(authorized: bool = Depends(verify_admin)):
-    """Returns list of all indexed PDFs."""
-    return {"pdfs": telemetry._store.get("indexed_pdfs", [])}
+    """
+    Returns all PDFs that physically exist in the uploads/ folder,
+    enriched with file size, upload timestamp, and indexed status.
+    """
+    pdf_records = []
+    tracked = set(telemetry._store.get("indexed_pdfs", []))
+
+    if UPLOADS_DIR.exists():
+        for pdf_file in sorted(UPLOADS_DIR.glob("*.pdf"), key=lambda f: f.stat().st_mtime, reverse=True):
+            stat = pdf_file.stat()
+            pdf_records.append({
+                "filename": pdf_file.name,
+                "size_kb": round(stat.st_size / 1024, 1),
+                "uploaded_at": datetime.utcfromtimestamp(stat.st_mtime).isoformat() + "Z",
+                "indexed": pdf_file.name in tracked,
+            })
+
+    # Also sync telemetry to match what's actually on disk
+    on_disk = {r["filename"] for r in pdf_records}
+    stale = [f for f in tracked if f not in on_disk]
+    for f in stale:
+        telemetry.remove_indexed_pdf(f)
+
+    return {
+        "pdfs": pdf_records,
+        "total": len(pdf_records),
+    }
+
+
+# ─────────────────────────────────────────────
+# Delete PDF  (disk + Azure Search index)
+# ─────────────────────────────────────────────
+@router.delete("/pdfs/{filename}")
+async def delete_pdf(filename: str, authorized: bool = Depends(verify_admin)):
+    """
+    Deletes a PDF from:
+    1. The local uploads/ directory
+    2. Azure AI Search (removes all chunks whose source_file == filename)
+    3. Telemetry indexed_pdfs list
+    """
+    import httpx
+
+    # Sanitise — prevent path traversal
+    safe_name = Path(filename).name
+    if not safe_name.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF filenames are accepted.")
+
+    file_path = UPLOADS_DIR / safe_name
+    deleted_from_disk = False
+    deleted_from_search = False
+    search_error = None
+
+    # 1. Delete from disk
+    if file_path.exists():
+        file_path.unlink()
+        deleted_from_disk = True
+        logger.info(f"Deleted PDF from disk: {safe_name}")
+    else:
+        logger.warning(f"PDF not found on disk (may already be deleted): {safe_name}")
+
+    # 2. Delete all chunks from Azure AI Search by source_file filter
+    try:
+        # First fetch all chunk IDs for this file
+        search_url = (
+            f"{settings.AZURE_SEARCH_ENDPOINT.rstrip('/')}"
+            f"/indexes/{settings.AZURE_SEARCH_INDEX_NAME}/docs/search"
+            f"?api-version=2024-07-01"
+        )
+        headers = {
+            "api-key": settings.AZURE_SEARCH_API_KEY,
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                search_url,
+                headers=headers,
+                json={
+                    "search": "*",
+                    "filter": f"source_file eq '{safe_name}'",
+                    "select": "id",
+                    "top": 1000,
+                },
+            )
+            if resp.status_code == 200:
+                results = resp.json().get("value", [])
+                if results:
+                    doc_ids = [{"@search.action": "delete", "id": r["id"]} for r in results]
+                    del_url = (
+                        f"{settings.AZURE_SEARCH_ENDPOINT.rstrip('/')}"
+                        f"/indexes/{settings.AZURE_SEARCH_INDEX_NAME}/docs/index"
+                        f"?api-version=2024-07-01"
+                    )
+                    del_resp = await client.post(
+                        del_url,
+                        headers=headers,
+                        json={"value": doc_ids},
+                    )
+                    deleted_from_search = del_resp.status_code in (200, 207)
+                    logger.info(f"Deleted {len(doc_ids)} chunks from Azure Search for: {safe_name}")
+                else:
+                    deleted_from_search = True  # nothing to delete
+                    logger.info(f"No chunks found in Azure Search for: {safe_name}")
+            else:
+                search_error = f"Search query failed: {resp.status_code}"
+    except Exception as e:
+        search_error = str(e)[:120]
+        logger.error(f"Azure Search deletion failed for {safe_name}: {e}")
+
+    # 3. Remove from telemetry
+    telemetry.remove_indexed_pdf(safe_name)
+
+    if not deleted_from_disk and not deleted_from_search:
+        raise HTTPException(
+            status_code=404,
+            detail=f"'{safe_name}' was not found on disk or in Azure Search."
+        )
+
+    return {
+        "status": "success",
+        "filename": safe_name,
+        "deleted_from_disk": deleted_from_disk,
+        "deleted_from_search": deleted_from_search,
+        "search_error": search_error,
+        "message": f"'{safe_name}' has been removed from the knowledge base.",
+    }
+
+
+# ─────────────────────────────────────────────
+# Language Usage Analytics
+# ─────────────────────────────────────────────
+@router.get("/language-analytics")
+async def get_language_analytics(authorized: bool = Depends(verify_admin)):
+    """
+    Returns per-language query distribution and average response latency.
+    Used to power the Language Analytics chart in the admin dashboard.
+    """
+    return telemetry.get_language_stats()
 
 
 # ─────────────────────────────────────────────

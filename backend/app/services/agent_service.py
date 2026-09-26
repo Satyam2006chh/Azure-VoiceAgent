@@ -184,6 +184,7 @@ async def process_user_query(
         telemetry.record_service_call("azure_openai")
         telemetry.record_query(tool_used="out_of_scope", is_out_of_scope=True)
         elapsed_ms = int((time.time() - start_time) * 1000)
+        telemetry.record_language(canonical_lang, latency_ms=elapsed_ms)
         return {
             "status": "success",
             "query": query_text,
@@ -434,6 +435,7 @@ async def process_user_query(
     telemetry.record_service_call("azure_search")
     telemetry.record_query(tool_used=tool_used, is_out_of_scope=False)
     elapsed_ms = int((time.time() - start_time) * 1000)
+    telemetry.record_language(canonical_lang, latency_ms=elapsed_ms)
     
     return {
         "status": "success",

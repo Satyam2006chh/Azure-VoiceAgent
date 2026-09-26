@@ -38,6 +38,8 @@ _store: Dict[str, Any] = {
     "daily_service_calls": {},  # {"2025-09-22": {"sarvam_stt": 3, ...}}
     "total_queries": 0,
     "indexed_pdfs": [],         # list of indexed PDF filenames
+    "language_hits": {},        # {"hi-IN": 45, "pa-IN": 30, ...}
+    "language_latency": {},     # {"hi-IN": [320, 410, ...]} — last 50 latencies per lang
 }
 
 
@@ -56,6 +58,9 @@ def _load():
                 for key in _store:
                     if key in saved:
                         _store[key] = saved[key]
+            # Ensure new keys exist for old telemetry files
+            _store.setdefault("language_hits", {})
+            _store.setdefault("language_latency", {})
             logger.info("Telemetry data loaded from disk.")
         except Exception as e:
             logger.warning(f"Could not load telemetry: {e}")
@@ -108,6 +113,60 @@ def add_indexed_pdf(filename: str):
     if filename not in _store["indexed_pdfs"]:
         _store["indexed_pdfs"].append(filename)
         _save()
+
+
+def remove_indexed_pdf(filename: str):
+    """Remove a PDF from the indexed list."""
+    if filename in _store["indexed_pdfs"]:
+        _store["indexed_pdfs"].remove(filename)
+        _save()
+
+
+def record_language(language_code: str, latency_ms: int = 0):
+    """Record a query's language and response latency for analytics."""
+    lang = language_code.strip() if language_code else "unknown"
+    _store["language_hits"][lang] = _store["language_hits"].get(lang, 0) + 1
+
+    if latency_ms > 0:
+        if lang not in _store["language_latency"]:
+            _store["language_latency"][lang] = []
+        # Keep last 50 latencies per language to avoid unbounded growth
+        _store["language_latency"][lang].append(latency_ms)
+        if len(_store["language_latency"][lang]) > 50:
+            _store["language_latency"][lang] = _store["language_latency"][lang][-50:]
+    _save()
+
+
+def get_language_stats() -> Dict[str, Any]:
+    """Return language usage distribution and avg latency per language."""
+    LANG_NAMES = {
+        "hi-IN": "Hindi", "en-IN": "English", "pa-IN": "Punjabi",
+        "ta-IN": "Tamil", "te-IN": "Telugu", "mr-IN": "Marathi",
+        "bn-IN": "Bengali", "gu-IN": "Gujarati", "kn-IN": "Kannada",
+        "ml-IN": "Malayalam", "or-IN": "Odia", "unknown": "Unknown",
+    }
+    hits = dict(_store.get("language_hits", {}))
+    latencies = dict(_store.get("language_latency", {}))
+    total = sum(hits.values()) or 1
+
+    result = []
+    for lang_code, count in sorted(hits.items(), key=lambda x: -x[1]):
+        avg_lat = 0
+        if lang_code in latencies and latencies[lang_code]:
+            avg_lat = int(sum(latencies[lang_code]) / len(latencies[lang_code]))
+        result.append({
+            "language_code": lang_code,
+            "language_name": LANG_NAMES.get(lang_code, lang_code),
+            "query_count": count,
+            "percentage": round((count / total) * 100, 1),
+            "avg_latency_ms": avg_lat,
+        })
+
+    return {
+        "languages": result,
+        "total_queries": sum(hits.values()),
+        "total_languages_used": len(hits),
+    }
 
 
 def get_stats() -> Dict[str, Any]:

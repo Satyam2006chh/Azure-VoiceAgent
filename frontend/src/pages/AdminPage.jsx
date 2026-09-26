@@ -3,7 +3,7 @@ import {
   MessageSquare, Calendar, Mic, Volume2, Bot, Search,
   TrendingUp, Wrench, Award, Activity, FileText, Users,
   ShieldAlert, ShieldCheck, RefreshCw, Upload, GraduationCap,
-  Globe, AlertCircle, CheckCircle2, Shield
+  Globe, AlertCircle, CheckCircle2, Shield, Trash2
 } from 'lucide-react';
 
 const BACKEND_URL = '';
@@ -454,10 +454,13 @@ function Dashboard({ token, onLogout }) {
   const [health, setHealth] = useState(null);
   const [breakdown, setBreakdown] = useState(null);
   const [usersData, setUsersData] = useState(null);
+  const [pdfsData, setPdfsData] = useState(null);
+  const [langData, setLangData] = useState(null);
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState('all');
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [deletingPdf, setDeletingPdf] = useState(null); // filename being deleted
   const fileInputRef = useRef(null);
 
   const authHeaders = { 'X-Admin-Token': token };
@@ -490,12 +493,30 @@ function Dashboard({ token, onLogout }) {
     } catch { }
   };
 
+  const fetchPdfs = async () => {
+    try {
+      const r = await fetch(`${BACKEND_URL}/api/admin/pdfs`, { headers: authHeaders });
+      if (r.ok) setPdfsData(await r.json());
+    } catch { }
+  };
+
+  const fetchLang = async () => {
+    try {
+      const r = await fetch(`${BACKEND_URL}/api/admin/language-analytics`, { headers: authHeaders });
+      if (r.ok) setLangData(await r.json());
+    } catch { }
+  };
+
   useEffect(() => {
     fetchStats();
     fetchHealth();
     fetchBreakdown();
     fetchUsers();
-    const interval = setInterval(() => { fetchStats(); fetchBreakdown(); fetchUsers(); }, 30000);
+    fetchPdfs();
+    fetchLang();
+    const interval = setInterval(() => {
+      fetchStats(); fetchBreakdown(); fetchUsers(); fetchPdfs(); fetchLang();
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -512,12 +533,34 @@ function Dashboard({ token, onLogout }) {
       });
       const d = await r.json();
       setUploadStatus(d.message || 'Done!');
+      fetchPdfs();
       fetchStats();
     } catch {
       setUploadStatus('Upload failed. Check backend logs.');
     }
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDeletePdf = async (filename) => {
+    if (!window.confirm(`Delete "${filename}" from the knowledge base?\n\nThis will remove it from Azure AI Search permanently.`)) return;
+    setDeletingPdf(filename);
+    try {
+      const r = await fetch(`${BACKEND_URL}/api/admin/pdfs/${encodeURIComponent(filename)}`, {
+        method: 'DELETE', headers: authHeaders,
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setUploadStatus(`✓ Deleted: ${d.message}`);
+      } else {
+        setUploadStatus(`✗ Delete failed: ${d.detail || 'Unknown error'}`);
+      }
+    } catch {
+      setUploadStatus('✗ Delete failed. Check backend logs.');
+    }
+    setDeletingPdf(null);
+    fetchPdfs();
+    fetchStats();
   };
 
   // Prepare chart data
@@ -765,7 +808,9 @@ function Dashboard({ token, onLogout }) {
                   <FileText size={18} color="#EF4444" />
                   <span>PDF Knowledge Base</span>
                 </div>
-                <div style={{ color: C.textMuted, fontSize: '0.82rem', marginTop: 4 }}>Uploaded PDFs are indexed into Azure AI Search for instant voice query retrieval.</div>
+                <div style={{ color: C.textMuted, fontSize: '0.82rem', marginTop: 4 }}>
+                  {pdfsData ? `${pdfsData.total} PDF${pdfsData.total !== 1 ? 's' : ''} in knowledge base` : 'Uploaded PDFs are indexed into Azure AI Search for instant voice query retrieval.'}
+                </div>
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -785,33 +830,75 @@ function Dashboard({ token, onLogout }) {
 
             {uploadStatus && (
               <div style={{
-                background: uploadStatus.includes('failed') ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
-                border: `1px solid ${uploadStatus.includes('failed') ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
-                color: uploadStatus.includes('failed') ? C.red : C.green,
+                background: uploadStatus.includes('failed') || uploadStatus.includes('✗') ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
+                border: `1px solid ${uploadStatus.includes('failed') || uploadStatus.includes('✗') ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.3)'}`,
+                color: uploadStatus.includes('failed') || uploadStatus.includes('✗') ? C.red : C.green,
                 padding: '0.75rem 1rem', borderRadius: 10, marginBottom: '1rem', fontSize: '0.85rem',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               }}>
-                {uploadStatus}
+                <span>{uploadStatus}</span>
+                <button onClick={() => setUploadStatus('')} style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '1rem' }}>✕</button>
               </div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
-              {(stats?.indexed_pdfs || []).length > 0
-                ? stats.indexed_pdfs.map((pdf, i) => (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+              {(pdfsData?.pdfs || []).length > 0
+                ? pdfsData.pdfs.map((pdf, i) => (
                   <div key={i} style={{
                     background: C.card, border: `1px solid ${C.cardBorder}`,
                     borderRadius: 14, padding: '1.25rem',
-                    display: 'flex', alignItems: 'center', gap: '0.75rem',
+                    display: 'flex', flexDirection: 'column', gap: '0.75rem',
+                    opacity: deletingPdf === pdf.filename ? 0.5 : 1,
+                    transition: 'opacity 0.2s',
                   }}>
-                    <div style={{
-                      width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-                      background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <FileText size={20} color="#EF4444" />
+                    {/* Top row: icon + name */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                      <div style={{
+                        width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                        background: pdf.indexed ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                        border: `1px solid ${pdf.indexed ? 'rgba(16,185,129,0.3)' : 'rgba(245,158,11,0.3)'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        <FileText size={18} color={pdf.indexed ? C.green : C.yellow} />
+                      </div>
+                      <div style={{ overflow: 'hidden', flex: 1 }}>
+                        <div style={{
+                          color: C.textPrimary, fontWeight: 600, fontSize: '0.85rem',
+                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        }} title={pdf.filename}>{pdf.filename}</div>
+                        <div style={{ color: C.textMuted, fontSize: '0.72rem', marginTop: 2 }}>
+                          {pdf.size_kb} KB · {new Date(pdf.uploaded_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ overflow: 'hidden' }}>
-                      <div style={{ color: C.textPrimary, fontWeight: 600, fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{pdf}</div>
-                      <div style={{ color: C.green, fontSize: '0.72rem', marginTop: 2, fontWeight: 600 }}>✓ Indexed in Azure AI Search</div>
+
+                    {/* Status + Delete row */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{
+                        fontSize: '0.72rem', fontWeight: 700,
+                        color: pdf.indexed ? C.green : C.yellow,
+                        background: pdf.indexed ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)',
+                        padding: '2px 8px', borderRadius: 8,
+                      }}>
+                        {pdf.indexed ? '✓ Indexed in Azure Search' : '⚠ Not yet indexed'}
+                      </span>
+                      <button
+                        onClick={() => handleDeletePdf(pdf.filename)}
+                        disabled={deletingPdf === pdf.filename}
+                        title="Delete from knowledge base"
+                        style={{
+                          background: 'rgba(239,68,68,0.12)',
+                          border: '1px solid rgba(239,68,68,0.25)',
+                          color: C.red, padding: '4px 10px', borderRadius: 8,
+                          cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700,
+                          fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
+                          transition: 'background 0.15s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.25)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.12)'}
+                      >
+                        {deletingPdf === pdf.filename ? '⏳' : '🗑'} Delete
+                      </button>
                     </div>
                   </div>
                 ))
@@ -823,11 +910,125 @@ function Dashboard({ token, onLogout }) {
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
                       <FileText size={40} color="#475569" />
                     </div>
-                    <div style={{ color: C.textSecondary, fontWeight: 600 }}>No PDFs indexed yet</div>
+                    <div style={{ color: C.textSecondary, fontWeight: 600 }}>No PDFs in knowledge base</div>
                     <div style={{ color: C.textMuted, fontSize: '0.82rem', marginTop: 4 }}>Upload a PDF to add it to the knowledge base</div>
                   </div>
                 )}
             </div>
+        </div>
+
+        {/* ── LANGUAGE ANALYTICS SECTION ── */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <div>
+              <div style={{ color: C.textPrimary, fontWeight: 700, fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Globe size={18} color="#8B5CF6" />
+                <span>Language Usage Analytics</span>
+              </div>
+              <div style={{ color: C.textMuted, fontSize: '0.82rem', marginTop: 4 }}>
+                Which languages students actually speak — and how fast each one responds.
+              </div>
+            </div>
+            <button onClick={fetchLang} style={{
+              background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)',
+              color: C.purple, padding: '6px 14px', borderRadius: 8, cursor: 'pointer',
+              fontSize: '0.8rem', fontWeight: 600, fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <RefreshCw size={13} /> Refresh
+            </button>
+          </div>
+
+          {langData && langData.total_queries > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+              {/* Summary pills */}
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 12, padding: '0.85rem 1.25rem' }}>
+                  <div style={{ color: C.textMuted, fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Total Queries Tracked</div>
+                  <div style={{ color: C.textPrimary, fontSize: '1.6rem', fontWeight: 800, marginTop: 4 }}>{fmt(langData.total_queries)}</div>
+                </div>
+                <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 12, padding: '0.85rem 1.25rem' }}>
+                  <div style={{ color: C.textMuted, fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Languages Used</div>
+                  <div style={{ color: C.purple, fontSize: '1.6rem', fontWeight: 800, marginTop: 4 }}>{langData.total_languages_used}</div>
+                </div>
+                {langData.languages[0] && (
+                  <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 12, padding: '0.85rem 1.25rem' }}>
+                    <div style={{ color: C.textMuted, fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Top Language</div>
+                    <div style={{ color: C.green, fontSize: '1.6rem', fontWeight: 800, marginTop: 4 }}>{langData.languages[0].language_name}</div>
+                    <div style={{ color: C.textMuted, fontSize: '0.72rem' }}>{langData.languages[0].percentage}% of all queries</div>
+                  </div>
+                )}
+              </div>
+
+              {/* Per-language bar rows */}
+              <div style={{ background: C.card, border: `1px solid ${C.cardBorder}`, borderRadius: 16, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(255,255,255,0.03)', borderBottom: `1px solid ${C.cardBorder}` }}>
+                      {['Language', 'Queries', 'Share', 'Usage Bar', 'Avg Latency'].map(h => (
+                        <th key={h} style={{
+                          padding: '0.85rem 1.1rem', textAlign: 'left',
+                          color: C.textMuted, fontWeight: 700, fontSize: '0.72rem',
+                          textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap',
+                        }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {langData.languages.map((lang, i) => {
+                      const BAR_COLORS = ['#8B5CF6','#0078D4','#10B981','#F59E0B','#EF4444','#EC4899','#06B6D4','#84CC16','#F97316','#6366F1','#14B8A6'];
+                      const color = BAR_COLORS[i % BAR_COLORS.length];
+                      return (
+                        <tr key={lang.language_code} style={{
+                          borderBottom: i === langData.languages.length - 1 ? 'none' : `1px solid ${C.cardBorder}`,
+                          background: i === 0 ? 'rgba(139,92,246,0.04)' : 'transparent',
+                        }}>
+                          <td style={{ padding: '0.9rem 1.1rem', whiteSpace: 'nowrap' }}>
+                            <div style={{ color: C.textPrimary, fontWeight: 700 }}>{lang.language_name}</div>
+                            <div style={{ color: C.textMuted, fontSize: '0.72rem' }}>{lang.language_code}</div>
+                          </td>
+                          <td style={{ padding: '0.9rem 1.1rem', color: color, fontWeight: 700 }}>{fmt(lang.query_count)}</td>
+                          <td style={{ padding: '0.9rem 1.1rem', color: C.textSecondary, fontWeight: 600 }}>{lang.percentage}%</td>
+                          <td style={{ padding: '0.9rem 1.1rem', minWidth: 160 }}>
+                            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 6, height: 8, overflow: 'hidden' }}>
+                              <div style={{
+                                width: `${lang.percentage}%`, height: '100%',
+                                background: `linear-gradient(90deg, ${color}, ${color}99)`,
+                                borderRadius: 6, transition: 'width 0.6s ease',
+                              }} />
+                            </div>
+                          </td>
+                          <td style={{ padding: '0.9rem 1.1rem', whiteSpace: 'nowrap' }}>
+                            {lang.avg_latency_ms > 0 ? (
+                              <span style={{
+                                color: lang.avg_latency_ms < 2000 ? C.green : lang.avg_latency_ms < 4000 ? C.yellow : C.red,
+                                fontWeight: 600,
+                              }}>
+                                {lang.avg_latency_ms < 1000 ? `${lang.avg_latency_ms}ms` : `${(lang.avg_latency_ms / 1000).toFixed(1)}s`}
+                              </span>
+                            ) : (
+                              <span style={{ color: C.textMuted }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div style={{
+              background: C.card, border: `1px dashed ${C.cardBorder}`,
+              borderRadius: 16, padding: '3rem', textAlign: 'center',
+            }}>
+              <Globe size={40} color="#475569" style={{ margin: '0 auto 1rem' }} />
+              <div style={{ color: C.textSecondary, fontWeight: 600 }}>No language data yet</div>
+              <div style={{ color: C.textMuted, fontSize: '0.82rem', marginTop: 4 }}>
+                Language stats appear after students use the voice assistant.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── REGISTERED USERS SECTION ── */}
