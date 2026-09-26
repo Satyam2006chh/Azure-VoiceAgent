@@ -10,7 +10,7 @@ import json
 import re
 import os
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from app.config import settings
 from app import telemetry
 
@@ -32,20 +32,18 @@ BOOTSTRAP_PDFS = [
 def extract_text_chunks(pdf_path: str, chunk_size: int = 500) -> List[Dict[str, Any]]:
     """
     Extract text from a PDF and split into overlapping chunks.
-    Each chunk is tagged with source file, page number, and chunk index.
+    Each chunk is tagged with source file and chunk index.
+    Only includes fields accepted by the Azure Search index schema:
+    id, source_file, content  (content_vector added later via get_embedding)
     """
     chunks = []
     try:
         doc = fitz.open(pdf_path)
         filename = Path(pdf_path).stem
         full_text = ""
-        page_map = []  # (char_start, page_num)
 
-        for page_num, page in enumerate(doc):
-            text = page.get_text("text")
-            page_map.append((len(full_text), page_num + 1))
-            full_text += text + "\n"
-
+        for page in doc:
+            full_text += page.get_text("text") + "\n"
         doc.close()
 
         # Split into chunks with 50-word overlap
@@ -57,19 +55,12 @@ def extract_text_chunks(pdf_path: str, chunk_size: int = 500) -> List[Dict[str, 
             chunk_words = words[start: start + chunk_size]
             if len(chunk_words) < 30:  # Skip tiny fragments
                 continue
-            chunk_text = " ".join(chunk_words)
+            chunk_text = re.sub(r'\s+', ' ', " ".join(chunk_words)).strip()
 
-            # Clean up excessive whitespace
-            chunk_text = re.sub(r'\s+', ' ', chunk_text).strip()
-
-            chunk_id = f"{filename}-chunk-{i}"
             chunks.append({
-                "id": chunk_id,
-                "title": _title_from_filename(filename),
-                "section": f"Page chunk {i+1}",
-                "category": _category_from_filename(filename),
-                "content": chunk_text,
+                "id": f"{filename}-chunk-{i}",
                 "source_file": Path(pdf_path).name,
+                "content": chunk_text,
             })
 
         logger.info(f"Extracted {len(chunks)} chunks from {Path(pdf_path).name}")
@@ -79,31 +70,47 @@ def extract_text_chunks(pdf_path: str, chunk_size: int = 500) -> List[Dict[str, 
     return chunks
 
 
-def _title_from_filename(name: str) -> str:
-    """Convert snake_case filename to readable title."""
-    return name.replace("_", " ").replace("-", " ").title()
+async def get_embedding(text: str) -> Optional[List[float]]:
+    """
+    Generate an embedding vector for a text chunk using Azure OpenAI.
+    Uses text-embedding-3-small (1536-dim). Falls back to None on failure
+    so the chunk is still indexed without a vector (keyword-only search).
+    """
+    if not settings.AZURE_OPENAI_API_KEY or not settings.AZURE_OPENAI_ENDPOINT:
+        return None
 
+    # Try text-embedding-3-small first, fall back to text-embedding-ada-002
+    for deployment in ("text-embedding-3-small", "text-embedding-ada-002"):
+        url = (
+            f"{settings.AZURE_OPENAI_ENDPOINT.rstrip('/')}"
+            f"/openai/deployments/{deployment}/embeddings?api-version=2024-02-15-preview"
+        )
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                r = await client.post(
+                    url,
+                    headers={"api-key": settings.AZURE_OPENAI_API_KEY, "Content-Type": "application/json"},
+                    json={"input": text[:8000]},  # stay within token limit
+                )
+                if r.status_code == 200:
+                    return r.json()["data"][0]["embedding"]
+                elif r.status_code == 404:
+                    # Deployment not found — try next
+                    continue
+                else:
+                    logger.warning(f"Embedding API returned {r.status_code} for {deployment}: {r.text[:200]}")
+        except Exception as e:
+            logger.warning(f"Embedding failed for deployment {deployment}: {e}")
 
-def _category_from_filename(name: str) -> str:
-    """Map filename to a category tag."""
-    name_lower = name.lower()
-    if "academic" in name_lower or "rule" in name_lower:
-        return "academic_rules"
-    if "library" in name_lower:
-        return "library"
-    if "exam" in name_lower:
-        return "examination"
-    if "fee" in name_lower or "circular" in name_lower:
-        return "fees"
-    if "hostel" in name_lower:
-        return "hostel"
-    return "university_ordinances"
+    return None
 
 
 async def index_chunks_to_azure(chunks: List[Dict[str, Any]]) -> bool:
     """
-    Upload document chunks to Azure AI Search index using the Upload Documents API.
-    Creates or updates documents (merge-or-upload).
+    Upload document chunks to Azure AI Search.
+    Generates content_vector embeddings for each chunk.
+    Falls back to uploading without vector if embeddings fail
+    (chunk is still searchable via keyword search).
     """
     if not settings.AZURE_SEARCH_API_KEY or not settings.AZURE_SEARCH_ENDPOINT:
         logger.warning("Azure Search not configured — skipping cloud indexing.")
@@ -119,26 +126,41 @@ async def index_chunks_to_azure(chunks: List[Dict[str, Any]]) -> bool:
         "Content-Type": "application/json",
     }
 
-    # Batch in groups of 100 (Azure limit per request)
+    # Generate embeddings for all chunks
+    logger.info(f"Generating embeddings for {len(chunks)} chunks...")
+    enriched = []
+    for chunk in chunks:
+        vector = await get_embedding(chunk["content"])
+        doc = {
+            "@search.action": "mergeOrUpload",
+            "id": chunk["id"],
+            "source_file": chunk["source_file"],
+            "content": chunk["content"],
+        }
+        if vector:
+            doc["content_vector"] = vector
+        enriched.append(doc)
+
+    # Batch upload in groups of 100
     batch_size = 100
     total_indexed = 0
 
-    for i in range(0, len(chunks), batch_size):
-        batch = chunks[i: i + batch_size]
-        payload = {
-            "value": [
-                {"@search.action": "mergeOrUpload", **chunk}
-                for chunk in batch
-            ]
-        }
+    for i in range(0, len(enriched), batch_size):
+        batch = enriched[i: i + batch_size]
+        payload = {"value": batch}
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 resp = await client.post(url, headers=headers, json=payload)
                 if resp.status_code in (200, 207):
                     total_indexed += len(batch)
                     logger.info(f"Indexed batch of {len(batch)} chunks (total: {total_indexed})")
+                    # Log any per-document errors from 207
+                    if resp.status_code == 207:
+                        for item in resp.json().get("value", []):
+                            if not item.get("status"):
+                                logger.warning(f"Doc {item.get('key')} failed: {item.get('errorMessage')}")
                 else:
-                    logger.warning(f"Azure Search indexing returned {resp.status_code}: {resp.text[:200]}")
+                    logger.error(f"Azure Search indexing returned {resp.status_code}: {resp.text[:300]}")
         except Exception as e:
             logger.error(f"Azure Search indexing exception: {e}")
 
@@ -146,7 +168,7 @@ async def index_chunks_to_azure(chunks: List[Dict[str, Any]]) -> bool:
 
 
 async def index_pdf(pdf_path: str) -> bool:
-    """Full pipeline: Extract text from PDF → chunk → index into Azure AI Search."""
+    """Full pipeline: Extract text from PDF → chunk → embed → index into Azure AI Search."""
     filename = Path(pdf_path).name
     logger.info(f"Starting indexing pipeline for: {filename}")
 
