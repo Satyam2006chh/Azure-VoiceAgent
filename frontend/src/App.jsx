@@ -7,13 +7,11 @@ import { AboutPage } from './pages/AboutPage';
 import { AssistantPage } from './pages/AssistantPage';
 import { ArchitecturePage } from './pages/ArchitecturePage';
 import { TechnologyPage } from './pages/TechnologyPage';
-import { TeamPage } from './pages/TeamPage';
 import { AdminPage } from './pages/AdminPage';
 
 const AppRouter = () => {
   const { currentRoute } = useApp();
 
-  // Admin page has its own full-screen layout (no Navbar/Footer)
   if (currentRoute === 'admin') {
     return <AdminPage />;
   }
@@ -24,8 +22,6 @@ const AppRouter = () => {
       {currentRoute === 'assistant'    && <AssistantPage />}
       {currentRoute === 'architecture' && <ArchitecturePage />}
       {currentRoute === 'technology'   && <TechnologyPage />}
-      {currentRoute === 'team'         && <TeamPage />}
-      {currentRoute === 'admin'        && <AdminPage />}
     </main>
   );
 };

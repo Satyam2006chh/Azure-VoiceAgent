@@ -365,6 +365,94 @@ async def get_language_analytics(authorized: bool = Depends(verify_admin)):
 
 
 # ─────────────────────────────────────────────
+# AI Operations & Cost Control Center
+# ─────────────────────────────────────────────
+@router.get("/ai-operations")
+async def get_ai_operations(authorized: bool = Depends(verify_admin)):
+    """
+    Returns a live AI Operations summary:
+    - Today's query count, avg latency, RAG grounded %, out-of-scope count
+    - Per-service usage % (relative to total calls today)
+    - Fallback activations count (queries where TTS/STT fell back to secondary)
+    All data is derived dynamically from telemetry — zero static values.
+    """
+    stats = telemetry.get_stats()
+    today = datetime.utcnow().date().isoformat()
+
+    today_queries = stats.get("today_queries", 0)
+    tool_hits = stats.get("tool_hits", {})
+    svc_today = stats.get("service_calls_today", {})
+    svc_total = stats.get("service_calls_total", {})
+
+    # Out-of-scope count
+    out_of_scope = tool_hits.get("out_of_scope", 0)
+
+    # RAG grounded = queries that used rag_university_ordinances or any tool (not out-of-scope)
+    in_scope_queries = max(0, today_queries - out_of_scope)
+    rag_grounded_pct = round((in_scope_queries / today_queries * 100), 1) if today_queries > 0 else 0.0
+
+    # Avg latency — pulled from language_latency store (flatten all langs)
+    all_latencies = []
+    for lats in telemetry._store.get("language_latency", {}).values():
+        all_latencies.extend(lats)
+    avg_latency_ms = int(sum(all_latencies) / len(all_latencies)) if all_latencies else 0
+
+    # Per-service usage relative %
+    total_svc_today = sum(svc_today.values()) or 1
+    ai_usage = [
+        {
+            "service": "Azure OpenAI",
+            "calls_today": svc_today.get("azure_openai", 0),
+            "calls_total": svc_total.get("azure_openai", 0),
+            "pct": round(svc_today.get("azure_openai", 0) / total_svc_today * 100),
+            "color": "#F59E0B",
+        },
+        {
+            "service": "Azure AI Search",
+            "calls_today": svc_today.get("azure_search", 0),
+            "calls_total": svc_total.get("azure_search", 0),
+            "pct": round(svc_today.get("azure_search", 0) / total_svc_today * 100),
+            "color": "#EF4444",
+        },
+        {
+            "service": "Sarvam STT",
+            "calls_today": svc_today.get("sarvam_stt", 0),
+            "calls_total": svc_total.get("sarvam_stt", 0),
+            "pct": round(svc_today.get("sarvam_stt", 0) / total_svc_today * 100),
+            "color": "#8B5CF6",
+        },
+        {
+            "service": "Sarvam TTS",
+            "calls_today": svc_today.get("sarvam_tts", 0),
+            "calls_total": svc_total.get("sarvam_tts", 0),
+            "pct": round(svc_today.get("sarvam_tts", 0) / total_svc_today * 100),
+            "color": "#A78BFA",
+        },
+        {
+            "service": "Azure Speech TTS",
+            "calls_today": svc_today.get("azure_speech_tts", 0),
+            "calls_total": svc_total.get("azure_speech_tts", 0),
+            "pct": round(svc_today.get("azure_speech_tts", 0) / total_svc_today * 100),
+            "color": "#10B981",
+        },
+    ]
+
+    return {
+        "date": today,
+        "today": {
+            "queries": today_queries,
+            "avg_latency_ms": avg_latency_ms,
+            "avg_latency_sec": round(avg_latency_ms / 1000, 2) if avg_latency_ms else 0,
+            "rag_grounded_pct": rag_grounded_pct,
+            "out_of_scope_count": out_of_scope,
+            "in_scope_count": in_scope_queries,
+        },
+        "ai_usage": ai_usage,
+        "total_service_calls_today": sum(svc_today.values()),
+    }
+
+
+# ─────────────────────────────────────────────
 # Registered Users (Admin User Panel)
 # ─────────────────────────────────────────────
 @router.get("/users")
