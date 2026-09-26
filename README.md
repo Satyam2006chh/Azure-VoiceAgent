@@ -49,54 +49,44 @@ Academic institutions release thousands of critical updates across ordinances, e
 
 ## 🏗️ End-to-End System Architecture
 
-```
-                    [ 🎙️ Student Speaks in Hindi / Punjabi / English ]
-                                            │
-                                            ▼
-                  ┌──────────────────────────────────────────────────┐
-                  │ 1. Speech-to-Text (STT) Layer                    │
-                  │ • Primary: Sarvam AI (saaras:v3)                 │
-                  │ • Fallback: Azure AI Speech Neural STT           │
-                  └─────────────────────────┬────────────────────────┘
-                                            │
-                                            ▼
-                  ┌──────────────────────────────────────────────────┐
-                  │ 2. Identity Shield & Security Gateway            │
-                  │ • Real Email 6-Digit OTP via Gmail SMTP          │
-                  │ • Role Detection (Chitkara Student vs Visitor)   │
-                  │ • Roll No. & Batch Year Extraction from Email    │
-                  │ • Cryptographic JWT Bearer Token (HS256)         │
-                  │ • Daily Quota Limiter (20 Student / 5 Visitor)   │
-                  └─────────────────────────┬────────────────────────┘
-                                            │
-                                            ▼
-                  ┌──────────────────────────────────────────────────┐
-                  │ 3. LLM Intent & Tool Calling Router              │
-                  │ • Azure OpenAI (GPT-4.1-mini)                    │
-                  │ • Routes to RAG, ERP Actions, or Guardrail       │
-                  └─────────────┬────────────────────────┬───────────┘
-                                │                        │
-         [ Academic / Circular Query ]             [ Out-of-Scope Query ]
-                                │                        │
-                                ▼                        ▼
-┌────────────────────────────────────────┐  ┌───────────────────────────────────┐
-│ 4. RAG Knowledge Base Retrieval        │  │ 5. Guardrail & Security Audit     │
-│ • Microsoft Azure AI Search            │  │ • Filters non-academic prompts    │
-│ • Vector + Semantic Hybrid Re-ranking  │  │ • Logs malicious attempts to      │
-│ • Dynamic PDF Circular Indexer Tool    │  │   Admin Audit Store               │
-└──────────────────────┬─────────────────┘  └─────────────────┬─────────────────┘
-                       │                                      │
-                       └───────────────────┬──────────────────┘
-                                           │
-                                           ▼
-                  ┌──────────────────────────────────────────────────┐
-                  │ 6. Neural Voice Synthesis (TTS)                  │
-                  │ • Sarvam AI (bulbul:v3)                          │
-                  │ • Azure AI Speech Neural High-Fidelity Voices    │
-                  └─────────────────────────┬────────────────────────┘
-                                            │
-                                            ▼
-                      [ 🔊 Grounded Voice Response with Citations ]
+```mermaid
+flowchart TD
+    A(["🎙️ Student Speaks\nHindi / Punjabi / English"]):::input
+
+    A --> B
+
+    B["**1. Speech-to-Text Layer**\n─────────────────────\n🟢 Primary → Sarvam AI saaras:v3\n🔵 Fallback → Azure AI Speech Neural STT"]:::stt
+
+    B --> C
+
+    C["**2. Identity Shield & Security Gateway**\n─────────────────────────────────\n📧 Real Email 6-Digit OTP via Gmail SMTP\n👤 Role Detection — Student vs Visitor\n🔢 Roll No. & Batch Year from Email\n🔐 JWT Bearer Token HS256\n⏱️ Daily Quota — 20 Student / 5 Visitor"]:::auth
+
+    C --> D
+
+    D["**3. LLM Intent & Tool Calling Router**\n─────────────────────────────\n🧠 Azure OpenAI — GPT-4.1-mini\n🔀 Routes → RAG / ERP Actions / Guardrail"]:::llm
+
+    D -->|"📚 Academic / Circular Query"| E
+    D -->|"🚫 Out-of-Scope Query"| F
+
+    E["**4. RAG Knowledge Base Retrieval**\n──────────────────────────────\n🔍 Microsoft Azure AI Search\n📐 Vector + Semantic Hybrid Re-ranking\n📄 Dynamic PDF Circular Indexer Tool"]:::rag
+
+    F["**5. Guardrail & Security Audit**\n─────────────────────────\n🛡️ Filters non-academic prompts\n📋 Logs malicious attempts\n🗄️ Admin Audit Store"]:::guard
+
+    E --> G
+    F --> G
+
+    G["**6. Neural Voice Synthesis — TTS**\n──────────────────────────────\n🔊 Sarvam AI — bulbul:v3\n🎵 Azure AI Speech Neural High-Fidelity"]:::tts
+
+    G --> H(["🔊 Grounded Voice Response\nwith Citations"]):::output
+
+    classDef input fill:#1a1a2e,stroke:#7c3aed,stroke-width:2px,color:#e2e8f0,rx:20
+    classDef output fill:#1a1a2e,stroke:#059669,stroke-width:2px,color:#e2e8f0,rx:20
+    classDef stt fill:#0f172a,stroke:#0ea5e9,stroke-width:2px,color:#e2e8f0
+    classDef auth fill:#0f172a,stroke:#8b5cf6,stroke-width:2px,color:#e2e8f0
+    classDef llm fill:#0f172a,stroke:#f59e0b,stroke-width:2px,color:#e2e8f0
+    classDef rag fill:#0f172a,stroke:#3b82f6,stroke-width:2px,color:#e2e8f0
+    classDef guard fill:#0f172a,stroke:#ef4444,stroke-width:2px,color:#e2e8f0
+    classDef tts fill:#0f172a,stroke:#10b981,stroke-width:2px,color:#e2e8f0
 ```
 
 ---
@@ -156,46 +146,51 @@ Accessible at `http://localhost:5173/#/admin` (Default: `admin@gmail.com` / `adm
 ## 📁 Project File Structure
 
 ```
-AI-Powered-Voice-University-Assistant/
-├── backend/
+Azure-VoiceAgent/
+├── backend/                          # Python FastAPI — API & AI Services
 │   ├── app/
-│   │   ├── config.py              # Environment variables & configuration
-│   │   ├── telemetry.py           # Daily breakdown & service call telemetry
-│   │   ├── main.py                # FastAPI app initialization & CORS
+│   │   ├── config.py                 # Environment variables & configuration
+│   │   ├── telemetry.py              # Daily breakdown & service call telemetry
+│   │   ├── main.py                   # FastAPI app initialization & CORS
 │   │   ├── routers/
-│   │   │   ├── admin.py           # Admin stats, user audit, PDF manager
-│   │   │   ├── auth.py            # OTP dispatch, verify, login, JWT
-│   │   │   └── voice.py           # Audio processing, STT/TTS, RAG routing
+│   │   │   ├── admin.py              # Admin stats, user audit, PDF manager
+│   │   │   ├── auth.py               # OTP dispatch, verify, login, JWT
+│   │   │   └── voice.py              # Audio processing, STT/TTS, RAG routing
 │   │   └── services/
-│   │       ├── email_service.py   # Branded HTML email dispatcher (SMTP)
-│   │       ├── user_service.py    # User store, roll number parsing, quota
-│   │       ├── pdf_indexer.py     # PDF chunking, embedding, Azure Search
-│   │       ├── sarvam_service.py  # Sarvam STT & TTS integration
-│   │       └── azure_service.py   # Azure OpenAI, Azure Speech, Azure Search
-│   ├── run.py                     # Backend server entry point (Port 8000)
-│   ├── requirements.txt           # Python dependencies
-│   └── .env                       # Cloud API keys & credentials
-├── public/
-│   ├── univoice-logo.svg          # High-resolution UniVoice Project Logo
-│   └── favicon.svg                # Browser favicon
-├── src/
-│   ├── components/
-│   │   ├── assistant/             # VoiceController, ChatHistory, AudioWaveform
-│   │   ├── common/                # AuthModal (OTP & Login), CitationModal
-│   │   └── layout/                # Navbar, Footer
-│   ├── pages/
-│   │   ├── AboutPage.jsx          # Overview & project vision
-│   │   ├── AssistantPage.jsx      # Voice conversation interface
-│   │   ├── ArchitecturePage.jsx   # Interactive technical blueprint simulator
-│   │   ├── TechnologyPage.jsx     # Azure & Sarvam AI stack showcase
-│   │   ├── TeamPage.jsx           # Engineering team credits
-│   │   └── AdminPage.jsx          # Admin analytics, PDF manager & user audit
-│   ├── context/
-│   │   └── AppContext.jsx         # Global state (auth, voice, route, quotas)
-│   ├── index.css                  # Global design system & Jost font styles
-│   └── App.jsx                    # Root component & view router
-├── package.json                   # Frontend dependencies
-└── vite.config.js                 # Vite configuration with /api backend proxy
+│   │       ├── email_service.py      # Branded HTML email dispatcher (SMTP)
+│   │       ├── user_service.py       # User store, roll number parsing, quota
+│   │       ├── pdf_indexer.py        # PDF chunking, embedding, Azure Search
+│   │       ├── sarvam_service.py     # Sarvam STT & TTS integration
+│   │       └── azure_openai_service.py  # Azure OpenAI, Azure Speech, Azure Search
+│   ├── run.py                        # Backend server entry point (Port 8000)
+│   ├── requirements.txt              # Python dependencies
+│   └── .env.example                  # Cloud API keys & credentials template
+│
+├── frontend/                         # React 18 + Vite — UI
+│   ├── public/
+│   │   ├── univoice-logo.svg         # High-resolution UniVoice project logo
+│   │   └── favicon.svg               # Browser favicon
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── assistant/            # VoiceController, ConversationFeed, AudioVisualizer
+│   │   │   ├── common/               # AuthModal (OTP & Login), Badge
+│   │   │   └── layout/               # Navbar, Footer
+│   │   ├── pages/
+│   │   │   ├── AboutPage.jsx         # Overview & project vision
+│   │   │   ├── AssistantPage.jsx     # Voice conversation interface
+│   │   │   ├── ArchitecturePage.jsx  # Interactive technical blueprint simulator
+│   │   │   ├── TechnologyPage.jsx    # Azure & Sarvam AI stack showcase
+│   │   │   ├── TeamPage.jsx          # Engineering team credits
+│   │   │   └── AdminPage.jsx         # Admin analytics, PDF manager & user audit
+│   │   ├── context/
+│   │   │   └── AppContext.jsx        # Global state — auth, voice, route, quotas
+│   │   ├── index.css                 # Global design system & Jost font styles
+│   │   └── App.jsx                   # Root component & view router
+│   ├── index.html                    # HTML entry point
+│   ├── package.json                  # Frontend dependencies
+│   └── vite.config.js                # Vite config with /api backend proxy
+│
+└── README.md                         # Project documentation
 ```
 
 ---
